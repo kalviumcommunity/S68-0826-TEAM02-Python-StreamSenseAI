@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from src.filters import DashboardFilters, render_global_filters
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -36,6 +37,28 @@ def load_dataset_row_counts() -> tuple[dict[str, int], list[str]]:
     return counts, errors
 
 
+@st.cache_data(show_spinner=False)
+def load_filter_options() -> tuple[list[str], list[str], list[str], object, object] | None:
+    """Load only the fields needed to populate the shared filter controls."""
+    try:
+        subscribers = pd.read_csv(RAW_DATA_DIR / "subscriber_data.csv", usecols=["subscription_plan"])
+        content = pd.read_csv(RAW_DATA_DIR / "content_metadata.csv", usecols=["genre"])
+        activity = pd.read_csv(RAW_DATA_DIR / "viewer_activity.csv", usecols=["device", "watch_date"])
+    except (FileNotFoundError, OSError, ValueError, pd.errors.ParserError):
+        return None
+
+    watch_dates = pd.to_datetime(activity["watch_date"], errors="coerce").dropna()
+    if watch_dates.empty:
+        return None
+    return (
+        content["genre"].dropna().unique().tolist(),
+        subscribers["subscription_plan"].dropna().unique().tolist(),
+        activity["device"].dropna().unique().tolist(),
+        watch_dates.min().date(),
+        watch_dates.max().date(),
+    )
+
+
 def status_card(column: st.delta_generator.DeltaGenerator, label: str, value: int | None, expected: int) -> None:
     """Render one data-readiness metric."""
     if value is None:
@@ -45,7 +68,7 @@ def status_card(column: st.delta_generator.DeltaGenerator, label: str, value: in
     column.metric(label, f"{value:,}", delta=delta, delta_color="normal" if value == expected else "off")
 
 
-def render_overview() -> None:
+def render_overview(selected_filters: DashboardFilters | None) -> None:
     """Render the Day 3 data-status overview."""
     st.title("StreamSense AI")
     st.caption("Viewer engagement intelligence for smarter content decisions")
@@ -75,6 +98,10 @@ def render_overview() -> None:
         "with subscriber retention. Upcoming pages will turn this foundation into viewer, "
         "content, and retention insights."
     )
+    if selected_filters:
+        st.caption(
+            "Global filters are ready. Analytical pages will apply them as their data services are added."
+        )
 
 
 def render_placeholder(page: str) -> None:
@@ -104,8 +131,18 @@ def main() -> None:
             label_visibility="collapsed",
         )
 
+    filter_options = load_filter_options()
+    selected_filters = None
+    if filter_options:
+        selected_filters = render_global_filters(*filter_options)
+    else:
+        with st.sidebar:
+            st.divider()
+            st.markdown("### Filters")
+            st.caption("Generate the raw datasets to enable filters.")
+
     if page == "Overview":
-        render_overview()
+        render_overview(selected_filters)
     elif page == "About":
         render_about()
     else:
