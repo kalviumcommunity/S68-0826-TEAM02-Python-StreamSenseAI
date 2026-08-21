@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from src.filters import DashboardFilters, render_global_filters
+from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -70,11 +71,13 @@ def status_card(column: st.delta_generator.DeltaGenerator, label: str, value: in
 
 def render_overview(selected_filters: DashboardFilters | None) -> None:
     """Render the Day 3 data-status overview."""
-    st.title("StreamSense AI")
-    st.caption("Viewer engagement intelligence for smarter content decisions")
+    render_page_header(
+        "Overview",
+        "Viewer Intelligence Dashboard",
+        "Understand the engagement signals behind subscriber retention and better content decisions.",
+    )
     st.divider()
-    st.subheader("Dataset Status")
-    st.write("A live readiness check for the data powering the dashboard.")
+    render_section_header("Dataset Status", "A live readiness check for the data powering this dashboard.")
 
     counts, errors = load_dataset_row_counts()
     expected_counts_match = all(counts.get(label) == expected for label, (_, expected) in DATASETS.items())
@@ -92,7 +95,7 @@ def render_overview(selected_filters: DashboardFilters | None) -> None:
     status_card(activities, "Viewing sessions", counts.get("Viewing sessions"), DATASETS["Viewing sessions"][1])
 
     st.divider()
-    st.markdown("#### What this means")
+    render_section_header("What this means", "The next analytics pages will build on this shared data foundation.")
     st.write(
         "Once all three datasets are ready, the dashboard can connect viewing behaviour "
         "with subscriber retention. Upcoming pages will turn this foundation into viewer, "
@@ -106,13 +109,20 @@ def render_overview(selected_filters: DashboardFilters | None) -> None:
 
 def render_placeholder(page: str) -> None:
     """Keep planned pages visible while their analytical content is delivered."""
-    st.title(page)
-    st.info("This page is being prepared and will be connected to the analytics outputs soon.")
+    descriptions = {
+        "Viewer Analytics": "Explore viewing habits, completion patterns, pauses, and devices.",
+        "Content Analytics": "Compare content performance to support acquisition decisions.",
+        "Retention Insights": "Identify engagement patterns associated with subscriber loyalty.",
+    }
+    render_page_header("Dashboard", page, descriptions[page])
+    st.divider()
+    render_empty_state("Analytics in progress", "This page will connect to the validated analytics outputs in a later milestone.")
 
 
 def render_about() -> None:
     """Describe the project without claiming unimplemented analytics."""
-    st.title("About StreamSense AI")
+    render_page_header("About", "About StreamSense AI", "Turning viewer behaviour into clearer content-acquisition decisions.")
+    st.divider()
     st.write(
         "StreamSense AI helps acquisition teams identify viewer-engagement patterns "
         "associated with subscriber retention before greenlighting content."
@@ -121,10 +131,12 @@ def render_about() -> None:
 
 def main() -> None:
     """Render app navigation and the selected page."""
+    apply_global_styles()
     with st.sidebar:
         st.title("StreamSense AI")
-        st.caption("Viewer Intelligence")
+        st.caption("VIEWER INTELLIGENCE")
         st.divider()
+        st.caption("WORKSPACE")
         page = st.radio(
             "Navigation",
             ["Overview", "Viewer Analytics", "Content Analytics", "Retention Insights", "About"],
