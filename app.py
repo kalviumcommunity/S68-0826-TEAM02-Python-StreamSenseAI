@@ -7,19 +7,24 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from src.content import build_content_ranking_table, calculate_content_kpis, content_session_metrics
 from src.executive import calculate_executive_kpis
 from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
 from src.segments import load_viewer_segment_summary
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
 from src.viewer import calculate_viewer_kpis
 from src.visualization import (
+    content_genre_performance,
     completion_distribution,
     completion_rate_trend,
     content_performance,
+    episode_completion_by_genre,
     engagement_vs_retention,
     genre_performance,
     pause_vs_completion,
+    rating_vs_retention,
     retention_by_signup_cohort,
+    top_shows,
     viewing_by_device,
     watch_duration_distribution,
     watch_duration_trend,
@@ -283,6 +288,62 @@ def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
         )
 
 
+def render_content_analytics(selected_filters: DashboardFilters | None) -> None:
+    """Render the Day 10 Content Analytics page."""
+    render_page_header(
+        "Content analytics",
+        "Content Analytics",
+        "Compare show and genre performance to support content acquisition and prioritization decisions.",
+    )
+    st.divider()
+    overview_data = load_overview_data()
+    if overview_data is None:
+        st.info("Generate the raw datasets to view content analytics.")
+        return
+
+    subscribers_data, content_data, activity_data = apply_dashboard_filters(*overview_data, selected_filters)
+    if activity_data.empty:
+        st.warning("No viewing sessions match the current filters. Adjust the sidebar filters to continue.")
+        return
+
+    content_metrics = content_session_metrics(activity_data, content_data, subscribers_data)
+    if content_metrics.empty:
+        st.warning("No content performance records are available for the current filters.")
+        return
+
+    render_section_header("Content KPIs", "How are titles performing on quality, completion, and retention outcomes?")
+    kpis = calculate_content_kpis(content_metrics)
+    kpi_columns = st.columns(4)
+    kpi_columns[0].metric("Total shows", f"{kpis.total_shows:,}")
+    kpi_columns[1].metric("Average rating", f"{kpis.average_rating:.2f}/10")
+    kpi_columns[2].metric("Average completion", f"{kpis.average_completion:.1f}%")
+    kpi_columns[3].metric("Average watch duration", f"{kpis.average_watch_duration:.1f} min")
+
+    st.divider()
+    render_section_header("Content drivers", "Which genres and titles are creating stronger retained viewing?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(content_genre_performance(activity_data, content_data, subscribers_data), width="stretch")
+        st.caption("Which genres currently show stronger retention and completion performance?")
+    with chart_right:
+        st.plotly_chart(top_shows(activity_data, content_data, subscribers_data), width="stretch")
+        st.caption("Which shows rank highest on retention-supported engagement outcomes?")
+
+    st.divider()
+    render_section_header("Quality and completion patterns", "How do ratings and episode completion align with retention?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(rating_vs_retention(activity_data, content_data, subscribers_data), width="stretch")
+        st.caption("Do higher-rated shows consistently retain viewers better?")
+    with chart_right:
+        st.plotly_chart(episode_completion_by_genre(activity_data, content_data, subscribers_data), width="stretch")
+        st.caption("Which genres drive stronger episode completion rates?")
+
+    st.divider()
+    render_section_header("Show ranking", "A ranked view of title-level performance for decision support.")
+    st.dataframe(build_content_ranking_table(content_metrics), width="stretch", hide_index=True)
+
+
 def render_about() -> None:
     """Describe the project without claiming unimplemented analytics."""
     render_page_header("About", "About StreamSense AI", "Turning viewer behaviour into clearer content-acquisition decisions.")
@@ -321,6 +382,8 @@ def main() -> None:
         render_overview(selected_filters)
     elif page == "Viewer Analytics":
         render_viewer_analytics(selected_filters)
+    elif page == "Content Analytics":
+        render_content_analytics(selected_filters)
     elif page == "About":
         render_about()
     else:
