@@ -37,13 +37,14 @@ from src.visualization import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+FINAL_APP_TITLE = "StreamSense AI | Final Streamlit Release"
 DATASETS = {
     "Subscribers": ("subscriber_data.csv", 1_000),
     "Shows": ("content_metadata.csv", 100),
     "Viewing sessions": ("viewer_activity.csv", 10_000),
 }
 
-st.set_page_config(page_title="StreamSense AI", page_icon="TV", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title=FINAL_APP_TITLE, page_icon="TV", layout="wide", initial_sidebar_state="expanded")
 
 
 @st.cache_data(show_spinner=False)
@@ -95,6 +96,18 @@ def load_overview_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame] | No
     except (FileNotFoundError, OSError, pd.errors.ParserError):
         return None
     return subscribers, content, activity
+
+
+@st.cache_data(show_spinner=False)
+def load_raw_dataset_bytes(filename: str) -> bytes | None:
+    """Return raw dataset bytes for download actions."""
+    path = RAW_DATA_DIR / filename
+    if not path.exists():
+        return None
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
 
 
 def status_card(column: st.delta_generator.DeltaGenerator, label: str, value: int | None, expected: int) -> None:
@@ -457,14 +470,74 @@ def render_retention_insights(selected_filters: DashboardFilters | None) -> None
     )
 
 
-def render_about() -> None:
-    """Describe the project without claiming unimplemented analytics."""
-    render_page_header("About", "About StreamSense AI", "Turning viewer behaviour into clearer content-acquisition decisions.")
-    st.divider()
-    st.write(
-        "StreamSense AI helps acquisition teams identify viewer-engagement patterns "
-        "associated with subscriber retention before greenlighting content."
+def render_about(selected_filters: DashboardFilters | None) -> None:
+    """Render final release context and project information."""
+    render_page_header(
+        "About",
+        "StreamSense AI Final Release",
+        "Presentation-ready viewer intelligence interface for retention-focused content decisions.",
     )
+    render_active_filter_context(selected_filters)
+    st.divider()
+
+    render_section_header("Project problem", "Why this dashboard exists.")
+    st.write(
+        "A subscription streaming platform captures watch duration, pause frequency, and completion behavior, "
+        "but acquisition decisions are often made without clear visibility into which engagement patterns drive retention."
+    )
+
+    st.divider()
+    render_section_header("Technology stack", "Core tools used for the final Streamlit application.")
+    st.markdown(
+        "- Python\n"
+        "- Streamlit\n"
+        "- Pandas\n"
+        "- Plotly\n"
+        "- Matplotlib (supporting analysis use cases)"
+    )
+
+    st.divider()
+    render_section_header("Dataset information", "Current raw data inputs powering this release.")
+    counts, errors = load_dataset_row_counts()
+    dataset_rows = []
+    for dataset_name, (filename, expected_count) in DATASETS.items():
+        loaded_count = counts.get(dataset_name)
+        dataset_rows.append(
+            {
+                "Dataset": dataset_name,
+                "File": filename,
+                "Expected records": expected_count,
+                "Loaded records": loaded_count if loaded_count is not None else "Unavailable",
+            }
+        )
+    st.dataframe(pd.DataFrame(dataset_rows), width="stretch", hide_index=True)
+    if errors:
+        st.warning(f"Some raw files are missing or unreadable: {', '.join(errors)}.")
+
+    download_data = load_raw_dataset_bytes("viewer_activity.csv")
+    if download_data is not None:
+        st.download_button(
+            "Download viewer activity data (CSV)",
+            data=download_data,
+            file_name="viewer_activity.csv",
+            mime="text/csv",
+        )
+
+    st.divider()
+    render_section_header("Team", "Ownership across the three-person development team.")
+    team_columns = st.columns(3)
+    with team_columns[0]:
+        with st.container(border=True):
+            st.markdown("**Person 1 - Data Engineering**")
+            st.write("Owns data generation, validation, and data pipeline reliability.")
+    with team_columns[1]:
+        with st.container(border=True):
+            st.markdown("**Person 2 - Analytics and ML**")
+            st.write("Owns segmentation, retention modeling, and analytical findings.")
+    with team_columns[2]:
+        with st.container(border=True):
+            st.markdown("**Person 3 - Dashboard UI**")
+            st.write("Owns Streamlit interface, Plotly visuals, filters, UX, and final presentation layer.")
 
 
 def main() -> None:
@@ -473,6 +546,7 @@ def main() -> None:
     with st.sidebar:
         st.title("StreamSense AI")
         st.caption("VIEWER INTELLIGENCE")
+        st.caption("FINAL RELEASE - DAY 14")
         st.divider()
         st.caption("WORKSPACE")
         page = st.radio(
@@ -500,7 +574,7 @@ def main() -> None:
     elif page == "Retention Insights":
         render_retention_insights(selected_filters)
     elif page == "About":
-        render_about()
+        render_about(selected_filters)
     else:
         render_placeholder(page)
 
