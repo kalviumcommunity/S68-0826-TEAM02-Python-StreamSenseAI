@@ -315,3 +315,82 @@ def episode_completion_by_genre(activity: pd.DataFrame, content: pd.DataFrame, s
     )
     fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100], coloraxis_showscale=False)
     return fig
+
+
+def retention_correlation_heatmap(features: pd.DataFrame) -> Figure:
+    """Show feature relationships connected to retention outcomes."""
+    correlation_input = features[
+        [
+            "watch_duration",
+            "session_duration",
+            "completion_rate",
+            "pause_count",
+            "engagement_score",
+            "retention",
+            "churn_probability",
+        ]
+    ].copy()
+    correlation_matrix = correlation_input.corr(numeric_only=True)
+    labels = {
+        "watch_duration": "Watch Duration",
+        "session_duration": "Session Duration",
+        "completion_rate": "Completion Rate",
+        "pause_count": "Pause Count",
+        "engagement_score": "Engagement Score",
+        "retention": "Retention",
+        "churn_probability": "Churn Probability",
+    }
+    correlation_matrix = correlation_matrix.rename(index=labels, columns=labels)
+    fig = px.imshow(
+        correlation_matrix,
+        text_auto=".2f",
+        color_continuous_scale="RdBu",
+        zmin=-1,
+        zmax=1,
+        title="Correlation heatmap",
+    )
+    fig.update_layout(**CHART_LAYOUT, coloraxis_colorbar_title="Correlation")
+    return fig
+
+
+def retention_by_viewer_segment_chart(segment_summary: pd.DataFrame) -> Figure:
+    """Compare retention rates across viewer segments."""
+    summary = segment_summary.sort_values("retention_rate", ascending=False)
+    fig = px.bar(
+        summary,
+        x="segment_name",
+        y="retention_rate",
+        color="engagement_score",
+        color_continuous_scale="Teal",
+        labels={
+            "segment_name": "Viewer segment",
+            "retention_rate": "Retention rate (%)",
+            "engagement_score": "Engagement score",
+        },
+        title="Retention by viewer segment",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", coloraxis_colorbar_title="Engagement")
+    return fig
+
+
+def pause_frequency_vs_completion(features: pd.DataFrame) -> Figure:
+    """Relate pause frequency to completion at the viewer level."""
+    fig = px.scatter(
+        features,
+        x="pause_count",
+        y="completion_rate",
+        color="retention_status",
+        size="watch_duration",
+        size_max=22,
+        opacity=0.7,
+        color_discrete_map={"Retained": ACCENT, "Churned": "#f97316"},
+        labels={
+            "pause_count": "Average pause count",
+            "completion_rate": "Average completion rate (%)",
+            "watch_duration": "Average watch duration (minutes)",
+            "retention_status": "Retention status",
+        },
+        title="Pause frequency versus completion",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_range=[0, 100])
+    return fig
