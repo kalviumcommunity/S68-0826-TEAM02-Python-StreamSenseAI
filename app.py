@@ -7,9 +7,17 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from src.filters import DashboardFilters, render_global_filters
+from src.executive import calculate_executive_kpis
+from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
-from src.visualization import completion_rate_trend, genre_performance, retention_by_signup_cohort, watch_duration_trend
+from src.visualization import (
+    completion_rate_trend,
+    content_performance,
+    engagement_vs_retention,
+    genre_performance,
+    retention_by_signup_cohort,
+    watch_duration_trend,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -108,23 +116,55 @@ def render_overview(selected_filters: DashboardFilters | None) -> None:
     status_card(activities, "Viewing sessions", counts.get("Viewing sessions"), DATASETS["Viewing sessions"][1])
 
     st.divider()
-    render_section_header("Engagement Overview", "Which behaviours and content areas are associated with stronger retention?")
+    render_section_header("Executive Snapshot", "The key viewing and retention signals for the selected audience.")
     overview_data = load_overview_data()
     if overview_data is None:
-        st.info("Generate the raw datasets to view the engagement overview charts.")
+        st.info("Generate the raw datasets to view the executive dashboard.")
     else:
-        subscribers_data, content_data, activity_data = overview_data
-        st.plotly_chart(retention_by_signup_cohort(subscribers_data), width="stretch")
-        st.caption("Business question: How does retention differ across subscriber signup cohorts?")
+        subscribers_data, content_data, activity_data = apply_dashboard_filters(*overview_data, selected_filters)
+        if activity_data.empty:
+            st.warning("No viewing sessions match the current filters. Adjust the sidebar filters to continue.")
+            return
+
+        kpis = calculate_executive_kpis(subscribers_data, activity_data)
+        row_one = st.columns(3)
+        row_one[0].metric("Total viewers", f"{kpis.total_viewers:,}")
+        row_one[1].metric("Retention rate", f"{kpis.retention_rate:.1f}%")
+        row_one[2].metric("Churn rate", f"{kpis.churn_rate:.1f}%")
+        row_two = st.columns(3)
+        row_two[0].metric("Avg. watch duration", f"{kpis.average_watch_duration:.1f} min")
+        row_two[1].metric("Avg. completion rate", f"{kpis.average_completion_rate:.1f}%")
+        row_two[2].metric("Engagement score", f"{kpis.engagement_score:.1f}/100")
+
+        st.divider()
+        render_section_header("Retention and engagement", "Where is engagement strongest, and how does it align with retention?")
+        retention_chart, engagement_chart = st.columns(2)
+        with retention_chart:
+            st.plotly_chart(retention_by_signup_cohort(subscribers_data), width="stretch")
+            st.caption("How does retention differ across subscriber signup cohorts?")
+        with engagement_chart:
+            st.plotly_chart(engagement_vs_retention(subscribers_data, activity_data), width="stretch")
+            st.caption("Do higher engagement signals align with retained viewers?")
+
+        st.divider()
+        render_section_header("Content opportunity", "Which genres and titles show the strongest engagement-retention signals?")
+        genre_chart, content_chart = st.columns(2)
+        with genre_chart:
+            st.plotly_chart(genre_performance(activity_data, content_data, subscribers_data), width="stretch")
+            st.caption("Which genres combine stronger viewer retention with completion?")
+        with content_chart:
+            st.plotly_chart(content_performance(activity_data, content_data, subscribers_data), width="stretch")
+            st.caption("Which titles balance completion, retention, and viewing volume?")
+
+        st.divider()
+        render_section_header("Engagement trends", "How are viewer attention and episode completion changing over time?")
         first_chart, second_chart = st.columns(2)
         with first_chart:
             st.plotly_chart(watch_duration_trend(activity_data), width="stretch")
-            st.caption("Business question: Is average viewing time changing over time?")
+            st.caption("Is average viewing time changing over time?")
         with second_chart:
             st.plotly_chart(completion_rate_trend(activity_data), width="stretch")
-            st.caption("Business question: Are viewers completing more of what they start?")
-        st.plotly_chart(genre_performance(activity_data, content_data, subscribers_data), width="stretch")
-        st.caption("Business question: Which genres combine stronger viewer retention with completion?")
+            st.caption("Are viewers completing more of what they start?")
 
     st.divider()
     render_section_header("What this means", "The next analytics pages will build on this shared data foundation.")

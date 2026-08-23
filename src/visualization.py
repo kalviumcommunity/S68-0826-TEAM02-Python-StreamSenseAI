@@ -6,6 +6,8 @@ import pandas as pd
 import plotly.express as px
 from plotly.graph_objects import Figure
 
+from src.executive import user_engagement_data
+
 
 PRIMARY = "#6d5dfc"
 ACCENT = "#14b8a6"
@@ -101,4 +103,58 @@ def genre_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers
         title="Genre performance: retention and completion",
     )
     fig.update_layout(**CHART_LAYOUT, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
+    return fig
+
+
+def engagement_vs_retention(subscribers: pd.DataFrame, activity: pd.DataFrame) -> Figure:
+    """Show the relationship between each viewer's engagement and retained status."""
+    user_data = user_engagement_data(subscribers, activity)
+    fig = px.scatter(
+        user_data,
+        x="engagement_score",
+        y="average_completion_rate",
+        color="retention_status",
+        size="session_frequency",
+        size_max=18,
+        opacity=0.72,
+        color_discrete_map={"Retained": ACCENT, "Churned": "#f97316"},
+        labels={
+            "engagement_score": "Engagement score",
+            "average_completion_rate": "Average completion rate (%)",
+            "session_frequency": "Sessions",
+            "retention_status": "Retention status",
+        },
+        title="Engagement versus retention",
+    )
+    fig.update_layout(**CHART_LAYOUT, xaxis_range=[0, 100], yaxis_range=[0, 100])
+    return fig
+
+
+def content_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
+    """Map content performance using completion, retention, ratings, and session volume."""
+    joined = activity.merge(content[["show_id", "title", "genre", "rating"]], on="show_id", how="inner")
+    joined = joined.merge(subscribers[["user_id", "retention_status"]], on="user_id", how="inner")
+    joined["is_retained"] = joined["retention_status"].eq("Retained")
+    summary = joined.groupby(["show_id", "title", "genre", "rating"], as_index=False).agg(
+        average_completion=("completion_rate", "mean"),
+        retention_rate=("is_retained", "mean"),
+        sessions=("activity_id", "count"),
+    )
+    summary["retention_rate"] *= 100
+    fig = px.scatter(
+        summary,
+        x="average_completion",
+        y="retention_rate",
+        size="sessions",
+        color="genre",
+        hover_name="title",
+        size_max=26,
+        labels={
+            "average_completion": "Average completion (%)",
+            "retention_rate": "Viewer retention (%)",
+            "sessions": "Viewing sessions",
+        },
+        title="Content performance map",
+    )
+    fig.update_layout(**CHART_LAYOUT, xaxis_range=[0, 100], yaxis_range=[0, 100])
     return fig
