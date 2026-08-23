@@ -10,12 +10,17 @@ import streamlit as st
 from src.executive import calculate_executive_kpis
 from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
+from src.viewer import calculate_viewer_kpis
 from src.visualization import (
+    completion_distribution,
     completion_rate_trend,
     content_performance,
     engagement_vs_retention,
     genre_performance,
+    pause_vs_completion,
     retention_by_signup_cohort,
+    viewing_by_device,
+    watch_duration_distribution,
     watch_duration_trend,
 )
 
@@ -191,6 +196,54 @@ def render_placeholder(page: str) -> None:
     render_empty_state("Analytics in progress", "This page will connect to the validated analytics outputs in a later milestone.")
 
 
+def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
+    """Render the Day 8 Viewer Analytics page using validated activity inputs."""
+    render_page_header(
+        "Viewer analytics",
+        "Viewer Analytics",
+        "Understand session behavior, completion habits, pause friction, and device-level viewing patterns.",
+    )
+    st.divider()
+    overview_data = load_overview_data()
+    if overview_data is None:
+        st.info("Generate the raw datasets to view viewer analytics.")
+        return
+
+    subscribers_data, content_data, activity_data = apply_dashboard_filters(*overview_data, selected_filters)
+    del subscribers_data, content_data
+    if activity_data.empty:
+        st.warning("No viewing sessions match the current filters. Adjust the sidebar filters to continue.")
+        return
+
+    render_section_header("Viewer KPIs", "How are viewers consuming content across their sessions?")
+    kpis = calculate_viewer_kpis(activity_data)
+    kpi_columns = st.columns(4)
+    kpi_columns[0].metric("Average watch duration", f"{kpis.average_watch_duration:.1f} min")
+    kpi_columns[1].metric("Average session duration", f"{kpis.average_session_duration:.1f} min")
+    kpi_columns[2].metric("Completion rate", f"{kpis.completion_rate:.1f}%")
+    kpi_columns[3].metric("Average pause count", f"{kpis.average_pause_count:.2f}")
+
+    st.divider()
+    render_section_header("Session distributions", "Where do most sessions cluster for watch depth and completion?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(watch_duration_distribution(activity_data), width="stretch")
+        st.caption("How is watch duration distributed across viewer sessions?")
+    with chart_right:
+        st.plotly_chart(completion_distribution(activity_data), width="stretch")
+        st.caption("How concentrated are sessions at higher versus lower completion?")
+
+    st.divider()
+    render_section_header("Behavior relationships", "Which interaction patterns may signal stronger or weaker viewer outcomes?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(pause_vs_completion(activity_data), width="stretch")
+        st.caption("Does frequent pausing correspond with lower completion?")
+    with chart_right:
+        st.plotly_chart(viewing_by_device(activity_data), width="stretch")
+        st.caption("Which devices drive the most sessions and stronger completion outcomes?")
+
+
 def render_about() -> None:
     """Describe the project without claiming unimplemented analytics."""
     render_page_header("About", "About StreamSense AI", "Turning viewer behaviour into clearer content-acquisition decisions.")
@@ -227,6 +280,8 @@ def main() -> None:
 
     if page == "Overview":
         render_overview(selected_filters)
+    elif page == "Viewer Analytics":
+        render_viewer_analytics(selected_filters)
     elif page == "About":
         render_about()
     else:

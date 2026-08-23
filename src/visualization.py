@@ -158,3 +158,71 @@ def content_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribe
     )
     fig.update_layout(**CHART_LAYOUT, xaxis_range=[0, 100], yaxis_range=[0, 100])
     return fig
+
+
+def watch_duration_distribution(activity: pd.DataFrame) -> Figure:
+    """Show the spread of watch duration across all filtered sessions."""
+    fig = px.histogram(
+        activity,
+        x="watch_duration_minutes",
+        nbins=28,
+        labels={"watch_duration_minutes": "Watch duration (minutes)", "count": "Sessions"},
+        title="Watch duration distribution",
+        color_discrete_sequence=[PRIMARY],
+    )
+    fig.update_layout(**CHART_LAYOUT, bargap=0.05)
+    return fig
+
+
+def completion_distribution(activity: pd.DataFrame) -> Figure:
+    """Show completion-rate distribution to highlight drop-off concentration."""
+    fig = px.histogram(
+        activity,
+        x="completion_rate",
+        nbins=25,
+        labels={"completion_rate": "Completion rate (%)", "count": "Sessions"},
+        title="Completion distribution",
+        color_discrete_sequence=[ACCENT],
+    )
+    fig.update_layout(**CHART_LAYOUT, bargap=0.05, xaxis_range=[0, 100])
+    return fig
+
+
+def pause_vs_completion(activity: pd.DataFrame) -> Figure:
+    """Plot pause frequency against completion to detect friction patterns."""
+    fig = px.scatter(
+        activity,
+        x="pause_count",
+        y="completion_rate",
+        color="watch_duration_minutes",
+        color_continuous_scale="Teal",
+        opacity=0.65,
+        labels={
+            "pause_count": "Pause count",
+            "completion_rate": "Completion rate (%)",
+            "watch_duration_minutes": "Watch duration (minutes)",
+        },
+        title="Pause count versus completion",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_range=[0, 100], coloraxis_colorbar_title="Watch duration")
+    return fig
+
+
+def viewing_by_device(activity: pd.DataFrame) -> Figure:
+    """Compare session volume and completion outcomes across devices."""
+    summary = activity.groupby("device", as_index=False).agg(
+        sessions=("activity_id", "count"),
+        average_completion=("completion_rate", "mean"),
+    )
+    summary = summary.sort_values("sessions", ascending=False)
+    fig = px.bar(
+        summary,
+        x="device",
+        y="sessions",
+        color="average_completion",
+        color_continuous_scale="Blues",
+        labels={"device": "Device", "sessions": "Viewing sessions", "average_completion": "Avg. completion (%)"},
+        title="Viewing by device",
+    )
+    fig.update_layout(**CHART_LAYOUT, coloraxis_colorbar_title="Completion")
+    return fig
