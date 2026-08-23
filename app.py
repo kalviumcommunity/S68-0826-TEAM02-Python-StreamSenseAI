@@ -10,6 +10,7 @@ import streamlit as st
 from src.content import build_content_ranking_table, calculate_content_kpis, content_session_metrics
 from src.executive import calculate_executive_kpis
 from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
+from src.insights import load_business_insights
 from src.retention import build_retention_features, retention_by_engagement_band
 from src.segments import load_viewer_segment_summary
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
@@ -371,6 +372,9 @@ def render_retention_insights(selected_filters: DashboardFilters | None) -> None
     if retention_features.empty:
         st.warning("Retention feature inputs are unavailable for the current filters.")
         return
+    segment_summary, segment_source, segment_errors = load_viewer_segment_summary(
+        PROJECT_ROOT, subscribers_data, activity_data
+    )
 
     render_section_header("Engagement bands", "How does retention differ across high, medium, and low engagement viewers?")
     engagement_summary = retention_by_engagement_band(retention_features)
@@ -385,9 +389,6 @@ def render_retention_insights(selected_filters: DashboardFilters | None) -> None
         st.plotly_chart(retention_correlation_heatmap(retention_features), width="stretch")
         st.caption("Which engagement variables are most strongly correlated with retention and churn probability?")
     with chart_right:
-        segment_summary, segment_source, segment_errors = load_viewer_segment_summary(
-            PROJECT_ROOT, subscribers_data, activity_data
-        )
         if segment_errors:
             st.caption("Segmentation file checks: " + " | ".join(segment_errors))
         if segment_summary is None:
@@ -406,6 +407,35 @@ def render_retention_insights(selected_filters: DashboardFilters | None) -> None
     with chart_right:
         st.plotly_chart(engagement_vs_retention(subscribers_data, activity_data), width="stretch")
         st.caption("How does engagement level separate retained and churned viewers?")
+
+    st.divider()
+    render_section_header("Business insights", "Action-oriented findings to support acquisition and retention decisions.")
+    insights_payload = load_business_insights(PROJECT_ROOT, retention_features, segment_summary)
+    if insights_payload.source_errors:
+        st.caption("Business insight file checks: " + " | ".join(insights_payload.source_errors))
+    st.caption(insights_payload.source_note)
+
+    insight_columns = st.columns(3)
+    for column, insight in zip(insight_columns, insights_payload.insights, strict=True):
+        with column:
+            with st.container(border=True):
+                st.caption(insight.identifier)
+                st.markdown(f"**{insight.title}**")
+                st.write(insight.message)
+
+    opportunity_column, action_column = st.columns(2)
+    with opportunity_column:
+        with st.container(border=True):
+            st.markdown("**Acquisition Opportunity**")
+            st.write(insights_payload.acquisition_opportunity)
+    with action_column:
+        with st.container(border=True):
+            st.markdown("**Recommended Action**")
+            st.write(insights_payload.recommended_action)
+
+    st.caption(
+        "Insights are based on historical/synthetic analytics data and should support—not replace—business judgment."
+    )
 
 
 def render_about() -> None:
