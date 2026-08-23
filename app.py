@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.executive import calculate_executive_kpis
 from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
+from src.segments import load_viewer_segment_summary
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
 from src.viewer import calculate_viewer_kpis
 from src.visualization import (
@@ -210,7 +211,7 @@ def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
         return
 
     subscribers_data, content_data, activity_data = apply_dashboard_filters(*overview_data, selected_filters)
-    del subscribers_data, content_data
+    del content_data
     if activity_data.empty:
         st.warning("No viewing sessions match the current filters. Adjust the sidebar filters to continue.")
         return
@@ -242,6 +243,44 @@ def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
     with chart_right:
         st.plotly_chart(viewing_by_device(activity_data), width="stretch")
         st.caption("Which devices drive the most sessions and stronger completion outcomes?")
+
+    st.divider()
+    render_section_header("Viewer segments", "How do key audience segments compare on engagement and retention?")
+    segment_summary, segment_source, segment_errors = load_viewer_segment_summary(
+        PROJECT_ROOT, subscribers_data, activity_data
+    )
+    if segment_errors:
+        st.caption("Segmentation file checks: " + " | ".join(segment_errors))
+
+    if segment_summary is None:
+        st.warning(
+            "Viewer segmentation output is not available yet. Add Person 2's segmentation export to data/processed/ to display this section."
+        )
+    else:
+        st.caption(segment_source)
+        card_columns = st.columns(5)
+        for card, segment_row in zip(card_columns, segment_summary.itertuples(index=False), strict=True):
+            with card:
+                with st.container(border=True):
+                    st.markdown(f"**{segment_row.segment_name}**")
+                    st.metric("Users", f"{segment_row.user_count:,}")
+                    st.metric("Engagement score", f"{segment_row.engagement_score:.1f}/100")
+                    st.metric("Retention rate", f"{segment_row.retention_rate:.1f}%")
+                    st.caption(segment_row.description)
+
+        st.dataframe(
+            segment_summary.rename(
+                columns={
+                    "segment_name": "Segment",
+                    "user_count": "Users",
+                    "engagement_score": "Engagement Score",
+                    "retention_rate": "Retention Rate (%)",
+                    "description": "Behavior",
+                }
+            ),
+            width="stretch",
+            hide_index=True,
+        )
 
 
 def render_about() -> None:
