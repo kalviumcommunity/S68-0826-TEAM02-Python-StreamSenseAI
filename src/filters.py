@@ -21,6 +21,16 @@ class DashboardFilters:
     end_date: date
 
 
+def _normalize_date_range(selection: object, default_start: date, default_end: date) -> tuple[date, date]:
+    """Normalize Streamlit date input output into a reliable start and end date pair."""
+    if isinstance(selection, date):
+        return selection, selection
+    if isinstance(selection, tuple) and len(selection) == 2 and all(isinstance(value, date) for value in selection):
+        start_date, end_date = selection
+        return (start_date, end_date) if start_date <= end_date else (end_date, start_date)
+    return default_start, default_end
+
+
 def render_global_filters(
     genres: Sequence[str],
     subscription_plans: Sequence[str],
@@ -41,7 +51,7 @@ def render_global_filters(
         selected_devices = st.multiselect("Device", options=sorted(devices), placeholder="All devices")
         date_range = st.date_input("Viewing date range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
 
-    start_date, end_date = date_range
+    start_date, end_date = _normalize_date_range(date_range, min_date, max_date)
     return DashboardFilters(
         genres=tuple(selected_genres),
         subscription_plan=subscription_plan,
