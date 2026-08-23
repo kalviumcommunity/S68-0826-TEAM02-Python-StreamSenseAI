@@ -10,6 +10,7 @@ import streamlit as st
 from src.content import build_content_ranking_table, calculate_content_kpis, content_session_metrics
 from src.executive import calculate_executive_kpis
 from src.filters import DashboardFilters, apply_dashboard_filters, render_global_filters
+from src.retention import build_retention_features, retention_by_engagement_band
 from src.segments import load_viewer_segment_summary
 from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
 from src.viewer import calculate_viewer_kpis
@@ -22,7 +23,10 @@ from src.visualization import (
     engagement_vs_retention,
     genre_performance,
     pause_vs_completion,
+    pause_frequency_vs_completion,
     rating_vs_retention,
+    retention_by_viewer_segment_chart,
+    retention_correlation_heatmap,
     retention_by_signup_cohort,
     top_shows,
     viewing_by_device,
@@ -344,6 +348,66 @@ def render_content_analytics(selected_filters: DashboardFilters | None) -> None:
     st.dataframe(build_content_ranking_table(content_metrics), width="stretch", hide_index=True)
 
 
+def render_retention_insights(selected_filters: DashboardFilters | None) -> None:
+    """Render the Day 11 Retention Insights page."""
+    render_page_header(
+        "Retention insights",
+        "Retention Insights",
+        "Identify engagement patterns associated with subscriber retention.",
+    )
+    st.divider()
+    overview_data = load_overview_data()
+    if overview_data is None:
+        st.info("Generate the raw datasets to view retention insights.")
+        return
+
+    subscribers_data, content_data, activity_data = apply_dashboard_filters(*overview_data, selected_filters)
+    del content_data
+    if activity_data.empty or subscribers_data.empty:
+        st.warning("No retention records match the current filters. Adjust the sidebar filters to continue.")
+        return
+
+    retention_features = build_retention_features(subscribers_data, activity_data)
+    if retention_features.empty:
+        st.warning("Retention feature inputs are unavailable for the current filters.")
+        return
+
+    render_section_header("Engagement bands", "How does retention differ across high, medium, and low engagement viewers?")
+    engagement_summary = retention_by_engagement_band(retention_features)
+    band_columns = st.columns(3)
+    for column, row in zip(band_columns, engagement_summary.itertuples(index=False), strict=True):
+        column.metric(row.engagement_band, f"{row.retention_rate:.1f}%")
+
+    st.divider()
+    render_section_header("Retention drivers", "What behavioral relationships are most associated with retention outcomes?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(retention_correlation_heatmap(retention_features), width="stretch")
+        st.caption("Which engagement variables are most strongly correlated with retention and churn probability?")
+    with chart_right:
+        segment_summary, segment_source, segment_errors = load_viewer_segment_summary(
+            PROJECT_ROOT, subscribers_data, activity_data
+        )
+        if segment_errors:
+            st.caption("Segmentation file checks: " + " | ".join(segment_errors))
+        if segment_summary is None:
+            st.warning("Viewer segment data is unavailable. Add Person 2 segmentation output to data/processed/.")
+        else:
+            st.plotly_chart(retention_by_viewer_segment_chart(segment_summary), width="stretch")
+            st.caption("Which viewer segments currently retain subscribers most effectively?")
+            st.caption(segment_source)
+
+    st.divider()
+    render_section_header("Friction and loyalty", "How do pauses, completion behavior, and engagement align with retention?")
+    chart_left, chart_right = st.columns(2)
+    with chart_left:
+        st.plotly_chart(pause_frequency_vs_completion(retention_features), width="stretch")
+        st.caption("Does higher pause frequency correspond to lower completion rates?")
+    with chart_right:
+        st.plotly_chart(engagement_vs_retention(subscribers_data, activity_data), width="stretch")
+        st.caption("How does engagement level separate retained and churned viewers?")
+
+
 def render_about() -> None:
     """Describe the project without claiming unimplemented analytics."""
     render_page_header("About", "About StreamSense AI", "Turning viewer behaviour into clearer content-acquisition decisions.")
@@ -384,6 +448,8 @@ def main() -> None:
         render_viewer_analytics(selected_filters)
     elif page == "Content Analytics":
         render_content_analytics(selected_filters)
+    elif page == "Retention Insights":
+        render_retention_insights(selected_filters)
     elif page == "About":
         render_about()
     else:
