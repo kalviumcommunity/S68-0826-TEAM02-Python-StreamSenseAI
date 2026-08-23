@@ -13,7 +13,19 @@ from src.executive import user_engagement_data
 PRIMARY = "#6d5dfc"
 ACCENT = "#14b8a6"
 WARNING = "#f59e0b"
-CHART_LAYOUT = {"template": "plotly_white", "margin": {"l": 12, "r": 12, "t": 58, "b": 12}}
+CHART_LAYOUT = {
+    "template": "plotly_white",
+    "margin": {"l": 12, "r": 12, "t": 58, "b": 12},
+    "legend": {"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "left", "x": 0},
+}
+
+
+def _finalize_figure(fig: Figure, **layout_updates: object) -> Figure:
+    """Apply shared chart polish for spacing and long-label readability."""
+    fig.update_layout(**CHART_LAYOUT, **layout_updates)
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True)
+    return fig
 
 
 def retention_by_signup_cohort(subscribers: pd.DataFrame) -> Figure:
@@ -34,8 +46,7 @@ def retention_by_signup_cohort(subscribers: pd.DataFrame) -> Figure:
         title="Retention by subscriber cohort",
     )
     fig.update_traces(line_color=PRIMARY, marker_color=PRIMARY, line_width=3)
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", yaxis_range=[0, 100])
 
 
 def watch_duration_trend(activity: pd.DataFrame) -> Figure:
@@ -53,8 +64,7 @@ def watch_duration_trend(activity: pd.DataFrame) -> Figure:
         title="Watch duration over time",
         color_discrete_sequence=[ACCENT],
     )
-    fig.update_layout(**CHART_LAYOUT)
-    return fig
+    return _finalize_figure(fig)
 
 
 def completion_rate_trend(activity: pd.DataFrame) -> Figure:
@@ -73,8 +83,7 @@ def completion_rate_trend(activity: pd.DataFrame) -> Figure:
         title="Episode completion over time",
     )
     fig.update_traces(line_color=WARNING, marker_color=WARNING, line_width=3)
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", yaxis_range=[0, 100])
 
 
 def genre_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
@@ -103,8 +112,7 @@ def genre_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers
         },
         title="Genre performance: retention and completion",
     )
-    fig.update_layout(**CHART_LAYOUT, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
-    return fig
+    return _finalize_figure(fig, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
 
 
 def engagement_vs_retention(subscribers: pd.DataFrame, activity: pd.DataFrame) -> Figure:
@@ -127,8 +135,7 @@ def engagement_vs_retention(subscribers: pd.DataFrame, activity: pd.DataFrame) -
         },
         title="Engagement versus retention",
     )
-    fig.update_layout(**CHART_LAYOUT, xaxis_range=[0, 100], yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, xaxis_range=[0, 100], yaxis_range=[0, 100])
 
 
 def content_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
@@ -157,8 +164,7 @@ def content_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribe
         },
         title="Content performance map",
     )
-    fig.update_layout(**CHART_LAYOUT, xaxis_range=[0, 100], yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, xaxis_range=[0, 100], yaxis_range=[0, 100])
 
 
 def watch_duration_distribution(activity: pd.DataFrame) -> Figure:
@@ -171,8 +177,7 @@ def watch_duration_distribution(activity: pd.DataFrame) -> Figure:
         title="Watch duration distribution",
         color_discrete_sequence=[PRIMARY],
     )
-    fig.update_layout(**CHART_LAYOUT, bargap=0.05)
-    return fig
+    return _finalize_figure(fig, bargap=0.05)
 
 
 def completion_distribution(activity: pd.DataFrame) -> Figure:
@@ -185,8 +190,7 @@ def completion_distribution(activity: pd.DataFrame) -> Figure:
         title="Completion distribution",
         color_discrete_sequence=[ACCENT],
     )
-    fig.update_layout(**CHART_LAYOUT, bargap=0.05, xaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, bargap=0.05, xaxis_range=[0, 100])
 
 
 def pause_vs_completion(activity: pd.DataFrame) -> Figure:
@@ -205,8 +209,7 @@ def pause_vs_completion(activity: pd.DataFrame) -> Figure:
         },
         title="Pause count versus completion",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_range=[0, 100], coloraxis_colorbar_title="Watch duration")
-    return fig
+    return _finalize_figure(fig, yaxis_range=[0, 100], coloraxis_colorbar_title="Watch duration")
 
 
 def viewing_by_device(activity: pd.DataFrame) -> Figure:
@@ -225,8 +228,7 @@ def viewing_by_device(activity: pd.DataFrame) -> Figure:
         labels={"device": "Device", "sessions": "Viewing sessions", "average_completion": "Avg. completion (%)"},
         title="Viewing by device",
     )
-    fig.update_layout(**CHART_LAYOUT, coloraxis_colorbar_title="Completion")
-    return fig
+    return _finalize_figure(fig, coloraxis_colorbar_title="Completion")
 
 
 def content_genre_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
@@ -251,8 +253,7 @@ def content_genre_performance(activity: pd.DataFrame, content: pd.DataFrame, sub
         },
         title="Genre performance",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
 
 
 def top_shows(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame, limit: int = 10) -> Figure:
@@ -277,8 +278,7 @@ def top_shows(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.Dat
         },
         title="Top shows",
     )
-    fig.update_layout(**CHART_LAYOUT, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
-    return fig
+    return _finalize_figure(fig, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
 
 
 def rating_vs_retention(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
@@ -295,8 +295,7 @@ def rating_vs_retention(activity: pd.DataFrame, content: pd.DataFrame, subscribe
         labels={"rating": "Rating", "retention_rate": "Retention rate (%)", "sessions": "Viewing sessions"},
         title="Rating versus retention",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", yaxis_range=[0, 100])
 
 
 def episode_completion_by_genre(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
@@ -313,8 +312,7 @@ def episode_completion_by_genre(activity: pd.DataFrame, content: pd.DataFrame, s
         labels={"genre": "Genre", "average_completion": "Average completion rate (%)"},
         title="Episode completion by genre",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100], coloraxis_showscale=False)
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", yaxis_range=[0, 100], coloraxis_showscale=False)
 
 
 def retention_correlation_heatmap(features: pd.DataFrame) -> Figure:
@@ -349,8 +347,7 @@ def retention_correlation_heatmap(features: pd.DataFrame) -> Figure:
         zmax=1,
         title="Correlation heatmap",
     )
-    fig.update_layout(**CHART_LAYOUT, coloraxis_colorbar_title="Correlation")
-    return fig
+    return _finalize_figure(fig, coloraxis_colorbar_title="Correlation")
 
 
 def retention_by_viewer_segment_chart(segment_summary: pd.DataFrame) -> Figure:
@@ -369,8 +366,7 @@ def retention_by_viewer_segment_chart(segment_summary: pd.DataFrame) -> Figure:
         },
         title="Retention by viewer segment",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", coloraxis_colorbar_title="Engagement")
-    return fig
+    return _finalize_figure(fig, yaxis_ticksuffix="%", coloraxis_colorbar_title="Engagement")
 
 
 def pause_frequency_vs_completion(features: pd.DataFrame) -> Figure:
@@ -392,5 +388,4 @@ def pause_frequency_vs_completion(features: pd.DataFrame) -> Figure:
         },
         title="Pause frequency versus completion",
     )
-    fig.update_layout(**CHART_LAYOUT, yaxis_range=[0, 100])
-    return fig
+    return _finalize_figure(fig, yaxis_range=[0, 100])

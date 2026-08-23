@@ -13,7 +13,7 @@ from src.filters import DashboardFilters, apply_dashboard_filters, render_global
 from src.insights import load_business_insights
 from src.retention import build_retention_features, retention_by_engagement_band
 from src.segments import load_viewer_segment_summary
-from src.ui import apply_global_styles, render_empty_state, render_page_header, render_section_header
+from src.ui import apply_global_styles, render_empty_state, render_filter_summary, render_page_header, render_section_header
 from src.viewer import calculate_viewer_kpis
 from src.visualization import (
     content_genre_performance,
@@ -106,6 +106,20 @@ def status_card(column: st.delta_generator.DeltaGenerator, label: str, value: in
     column.metric(label, f"{value:,}", delta=delta, delta_color="normal" if value == expected else "off")
 
 
+def render_active_filter_context(selected_filters: DashboardFilters | None) -> None:
+    """Show currently active filters to keep all pages context-aware."""
+    if selected_filters is None:
+        render_filter_summary("Filters: unavailable until raw data is generated.")
+        return
+    selected_genres = ", ".join(selected_filters.genres) if selected_filters.genres else "All genres"
+    selected_devices = ", ".join(selected_filters.devices) if selected_filters.devices else "All devices"
+    summary_text = (
+        f"Filters: {selected_genres} | {selected_filters.subscription_plan} | {selected_devices} | "
+        f"{selected_filters.start_date.isoformat()} to {selected_filters.end_date.isoformat()}"
+    )
+    render_filter_summary(summary_text)
+
+
 def render_overview(selected_filters: DashboardFilters | None) -> None:
     """Render the Day 3 data-status overview."""
     render_page_header(
@@ -113,6 +127,7 @@ def render_overview(selected_filters: DashboardFilters | None) -> None:
         "Viewer Intelligence Dashboard",
         "Understand the engagement signals behind subscriber retention and better content decisions.",
     )
+    render_active_filter_context(selected_filters)
     st.divider()
     render_section_header("Dataset Status", "A live readiness check for the data powering this dashboard.")
 
@@ -214,6 +229,7 @@ def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
         "Viewer Analytics",
         "Understand session behavior, completion habits, pause friction, and device-level viewing patterns.",
     )
+    render_active_filter_context(selected_filters)
     st.divider()
     overview_data = load_overview_data()
     if overview_data is None:
@@ -290,6 +306,7 @@ def render_viewer_analytics(selected_filters: DashboardFilters | None) -> None:
             ),
             width="stretch",
             hide_index=True,
+            height=300,
         )
 
 
@@ -300,6 +317,7 @@ def render_content_analytics(selected_filters: DashboardFilters | None) -> None:
         "Content Analytics",
         "Compare show and genre performance to support content acquisition and prioritization decisions.",
     )
+    render_active_filter_context(selected_filters)
     st.divider()
     overview_data = load_overview_data()
     if overview_data is None:
@@ -346,7 +364,7 @@ def render_content_analytics(selected_filters: DashboardFilters | None) -> None:
 
     st.divider()
     render_section_header("Show ranking", "A ranked view of title-level performance for decision support.")
-    st.dataframe(build_content_ranking_table(content_metrics), width="stretch", hide_index=True)
+    st.dataframe(build_content_ranking_table(content_metrics), width="stretch", hide_index=True, height=400)
 
 
 def render_retention_insights(selected_filters: DashboardFilters | None) -> None:
@@ -356,6 +374,7 @@ def render_retention_insights(selected_filters: DashboardFilters | None) -> None
         "Retention Insights",
         "Identify engagement patterns associated with subscriber retention.",
     )
+    render_active_filter_context(selected_filters)
     st.divider()
     overview_data = load_overview_data()
     if overview_data is None:
