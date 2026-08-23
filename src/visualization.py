@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 from plotly.graph_objects import Figure
 
+from src.content import content_session_metrics
 from src.executive import user_engagement_data
 
 
@@ -225,4 +226,92 @@ def viewing_by_device(activity: pd.DataFrame) -> Figure:
         title="Viewing by device",
     )
     fig.update_layout(**CHART_LAYOUT, coloraxis_colorbar_title="Completion")
+    return fig
+
+
+def content_genre_performance(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
+    """Compare genre-level completion and retention performance."""
+    metrics = content_session_metrics(activity, content, subscribers)
+    summary = metrics.groupby("genre", as_index=False).agg(
+        average_completion=("average_completion", "mean"),
+        retention_rate=("retention_rate", "mean"),
+        shows=("show_id", "nunique"),
+    )
+    summary = summary.sort_values("retention_rate", ascending=False)
+    fig = px.bar(
+        summary,
+        x="genre",
+        y="retention_rate",
+        color="average_completion",
+        color_continuous_scale="Teal",
+        labels={
+            "genre": "Genre",
+            "retention_rate": "Retention rate (%)",
+            "average_completion": "Avg. completion (%)",
+        },
+        title="Genre performance",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
+    return fig
+
+
+def top_shows(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame, limit: int = 10) -> Figure:
+    """Show top titles ranked by retention and completion outcomes."""
+    metrics = content_session_metrics(activity, content, subscribers)
+    ranked = metrics.sort_values(
+        by=["retention_rate", "average_completion", "average_watch", "rating"],
+        ascending=False,
+    ).head(limit)
+    ranked = ranked.sort_values("retention_rate", ascending=True)
+    fig = px.bar(
+        ranked,
+        x="retention_rate",
+        y="title",
+        orientation="h",
+        color="average_completion",
+        color_continuous_scale="Blues",
+        labels={
+            "retention_rate": "Retention rate (%)",
+            "title": "Show",
+            "average_completion": "Avg. completion (%)",
+        },
+        title="Top shows",
+    )
+    fig.update_layout(**CHART_LAYOUT, xaxis_ticksuffix="%", coloraxis_colorbar_title="Completion")
+    return fig
+
+
+def rating_vs_retention(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
+    """Evaluate whether higher-rated titles are retaining viewers better."""
+    metrics = content_session_metrics(activity, content, subscribers)
+    fig = px.scatter(
+        metrics,
+        x="rating",
+        y="retention_rate",
+        size="sessions",
+        color="genre",
+        hover_name="title",
+        size_max=26,
+        labels={"rating": "Rating", "retention_rate": "Retention rate (%)", "sessions": "Viewing sessions"},
+        title="Rating versus retention",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100])
+    return fig
+
+
+def episode_completion_by_genre(activity: pd.DataFrame, content: pd.DataFrame, subscribers: pd.DataFrame) -> Figure:
+    """Compare episode completion rates by genre."""
+    metrics = content_session_metrics(activity, content, subscribers)
+    summary = metrics.groupby("genre", as_index=False).agg(average_completion=("average_completion", "mean"))
+    summary = summary.sort_values("average_completion", ascending=False)
+    fig = px.bar(
+        summary,
+        x="genre",
+        y="average_completion",
+        color="average_completion",
+        color_continuous_scale="Viridis",
+        labels={"genre": "Genre", "average_completion": "Average completion rate (%)"},
+        title="Episode completion by genre",
+    )
+    fig.update_layout(**CHART_LAYOUT, yaxis_ticksuffix="%", yaxis_range=[0, 100], coloraxis_showscale=False)
     return fig
