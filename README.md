@@ -35,6 +35,16 @@ A streaming platform captures watch duration, pause frequency, and episode-compl
    streamlit run app.py
    ```
 
+## Data pipeline flow
+
+Person 1 is responsible for the data engineering layer that powers the project.
+
+1. Synthetic data is generated in `scripts/generate_data.py`.
+2. Raw CSV files are created in `data/raw`.
+3. Validation checks confirm the expected row counts and schema quality.
+4. The validated files can be loaded into SQLite via `scripts/load_to_sqlite.py`.
+5. Analyst and dashboard work consumes the cleaned data tables in the database.
+
 ## Delivery roadmap
 
 1. Data generation and validation
@@ -42,3 +52,10 @@ A streaming platform captures watch duration, pause frequency, and episode-compl
 3. Exploratory analysis and KPIs
 4. Viewer segmentation and retention insights
 5. Interactive dashboard and testing
+
+## Person 1 contribution summary
+
+- Generate realistic subscriber, content, and activity datasets
+- Validate record counts and field integrity
+- Document the data contract and schema
+- Prepare the database-ready layer for downstream analytics
